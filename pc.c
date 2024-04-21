@@ -45,11 +45,13 @@ void *producer(void *arg)
     int events = data->events;
     for (int i = 0; i < events; i++)
     {
-        sem_wait(spaces);
+        sem_wait(spaces); //need two locks
         sem_wait(mutex);
 
         int event = id * 100 + i;
+        
         printf("P%d: adding event %d\n", id, event);
+        
         eventbuf_add(eb, event);
 
         sem_post(mutex);
@@ -65,16 +67,18 @@ void *consumer(void *arg)
     while (1)
     {
         sem_wait(items);
-        sem_wait(mutex);
+        sem_wait(mutex); // consumer also needs mutex
 
         if (quitting_time || eventbuf_empty(eb))
         {
-            sem_post(mutex);
+            sem_post(mutex); // sike
             sem_post(items);
+            
             break;
         }
 
         int event = eventbuf_get(eb);
+    
         printf("C%d: got event %d\n", id, event);
 
         sem_post(mutex);
@@ -113,7 +117,7 @@ int main(int argc, char *argv[])
     pthread_t producer_threads[producers];
     pthread_t consumer_threads[consumers];
 
-    int consumer_ids[consumers];
+    int consumer_ids[consumers]; // memory managment man :(
 
     for (int i = 0; i < producers; i++)
     {
@@ -134,7 +138,7 @@ int main(int argc, char *argv[])
         pthread_join(producer_threads[i], NULL);
     }
 
-    quitting_time = 1;
+    quitting_time = 1; // mood
 
     for (int i = 0; i < consumers; i++)
     {
@@ -149,9 +153,7 @@ int main(int argc, char *argv[])
     eventbuf_free(eb);
 
     sem_close(items);
-
     sem_close(spaces);
-
     sem_close(mutex);
 
     return 0;
